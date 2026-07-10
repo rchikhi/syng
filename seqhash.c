@@ -7,7 +7,7 @@
 	see test main() at end for standard usage pattern
  * Exported functions: see seqhash.h
  * HISTORY:
- * Last edited: Jan 14 09:28 2025 (rd109)
+ * Last edited: Mar 28 15:01 2026 (rd109)
  * Created: Sat Feb 24 19:20:18 2018 (rd)
  *-------------------------------------------------------------------
  */
@@ -295,6 +295,74 @@ char *seqString (U64 kmer, int len)
   while (len--) { buf[len] = trans[kmer & 0x3] ; kmer >>= 2 ; }
   return buf ;
 }
+
+/*******************************************/
+
+#ifdef H_EXPLORE // find h for given k where repetitive sequences have high values
+
+// compilation: cc -o hExplore -DH_EXPLORE seqhash.c utils.c -lz
+
+#include <stdlib.h>
+
+int main (int argc, char *argv[])
+{
+  char seq[]  =
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    "acacacacacacacacacacacacacacacac"
+    "agagagagagagagagagagagagagagagag"
+    "atatatatatatatatatatatatatatatat"
+    "cacacacacacacacacacacacacacacaca"
+    "cccccccccccccccccccccccccccccccc"
+    "cgcgcgcgcgcgcgcgcgcgcgcgcgcgcgcg"
+    "ctctctctctctctctctctctctctctctct"
+    "gagagagagagagagagagagagagagagaga"
+    "gcgcgcgcgcgcgcgcgcgcgcgcgcgcgcgc"
+    "gggggggggggggggggggggggggggggggg"
+    "gtgtgtgtgtgtgtgtgtgtgtgtgtgtgtgt"
+    "tatatatatatatatatatatatatatatata"
+    "tctctctctctctctctctctctctctctctc"
+    "tgtgtgtgtgtgtgtgtgtgtgtgtgtgtgtg"
+    "tttttttttttttttttttttttttttttttt" ;
+
+  char map[256] ; map['a'] = 0 ; map['c'] = 1 ; map['g'] = 2 ; map['t'] = 3 ;
+
+  int seqLen = strlen(seq) ;
+  printf ("sequence length %d with 16 repeats of length %d\n", seqLen, seqLen/16) ;
+  int i, h ;
+  for (i = 0 ; i < seqLen ; ++i)
+    seq[i] = map[seq[i]] ;
+  
+  --argc ; ++argv ;
+  if (argc != 1) die ("usage: hExplore <s>") ;
+  int k = atoi (*argv) ;
+  if (k <= 1 || k >= 32) die ("s %d not between 1 and 32", k) ;
+
+  U64 score[16], best = 0 ;
+  for (h = 1 ; h < 1000000 ; ++h)
+    { Seqhash *sh = seqhashCreate (k, 32-k, h) ;
+      SeqhashIterator *si = seqhashIterator (sh, seq, seqLen) ;
+      int x = 0 ;
+      U64 min = U64MAX, max = 0 ;
+      while (seqhashNext (si, 0, 0, 0))
+	{ if (*si->hash > max) max = *si->hash ;
+	  if (!(x++ % 32))
+	    { U64 hash = *si->hash ;
+	      score[x>>5] = hash ;
+	      if (hash < min) min = hash ;
+	    }
+	}
+      if (min > best)
+	{ printf ("h %4d ", h) ;
+	  U64 z = 1 ; while (z < max) z <<= 1 ;
+	  double fac = 100.0 / z ;
+	  for (i = 0 ; i < 16 ; ++i) printf (" %2d", (int)(score[i]*fac)) ;
+	  printf (" max %'llu min %'llu %2d\n", max, min, (int)(min*fac)) ;
+	  best = min ;
+	}
+    }
+}
+
+#endif // EXPLORE
 
 /************** short test program, illustrating standard usage *************/
 
