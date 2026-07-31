@@ -5,7 +5,7 @@
  * Description: code for run-length encoded skip lists
  * Exported functions:
  * HISTORY:
- * Last edited: Jun 14 18:42 2026 (rd109)
+ * Last edited: Jul 31 11:05 2026 (rd109)
  * Created: Sun Nov 30 21:42:51 2025 (rd109)
  *-------------------------------------------------------------------
  */
@@ -1267,7 +1267,7 @@ int rsDirRankSyng (Rskip rs, I32 symbol, U32 offset)
 	if (node[i].sym == symbol && node[i].offset == offset) // found it
 	  return sum ;
 	else
-	  sum += node[i].sum ;
+	  sum += node[i].count ; // 14/6/26 changed to .sum, 31/7/26 changed back to .count
       die ("failed to find symbol %d offset %u in dynamic rskip", symbol, offset) ;
     }
   else 
@@ -1367,7 +1367,7 @@ U32 rsDirSum (Rskip rs)
     }
   else if (rsType(rs) == DYNAMIC)
     { Dynamic *node = rs.dynamic + 1 ;
-      for (int i = 0 ; i < rs.dynamic->nSym ; ++i) sum += node[i].sum ; // seems we need this
+      for (int i = 0 ; i < rs.dynamic->nSym ; ++i) sum += node[i].count ; // 14/6/26 changed to .sum, 31/7/26 changed back to .count
     }
   else if (rsType(rs) == FIXED_SYNG)
     { Fixed *node = rs.fixed + 1 ;
