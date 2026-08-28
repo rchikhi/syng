@@ -5,7 +5,8 @@
  * Description:
  * Exported functions:
  * HISTORY:
- * Last edited: Jun 14 10:09 2026 (rd109)
+ * Last edited: Aug 28 13:13 2026 (rd109)
+ * * Aug 28 13:12 2026 (rd109): fixed bug building with one edge with count > U16MAX (Vikram)
  * * Nov 23 01:15 2025 (rd109): converted to skipList (balanced tree)
  * Created: Mon Sep  9 11:34:51 2024 (rd109)
  *-------------------------------------------------------------------
@@ -670,21 +671,21 @@ static void *threadRead (void *arg)
       *s = 0 ; // default for empty node
       if (inN > 0 || outN > 0)
 	{ *s = NODE_EXISTS ;
-	  if (inN == 1)
+	  if (inN == 1 && !inNrun)
 	    { *s |= NODE_SIMPLE_IN ;
 	      n->in.sync = inSync[0] ; n->in.offset = inOffset[0] ; n->in.count = inSum[0] ;
 	    }
-	  else
+	  else if (inN > 0)
 #ifdef RSKIP_SEARCH_COUNT
 	    n->in.rs = rsBuildDynamicSyng (inN, inSync, inOffset, inNrun, inSym, inRunLen) ;
 #else
 	    n->in.rs = rsBuildFixedSyng (inN, inSync, inOffset, inNrun, inSym, inRunLen) ;
 #endif
-	  if (outN == 1)
+	  if (outN == 1 && !outNrun)
 	    { *s |= NODE_SIMPLE_OUT ;
 	      n->out.sync = outSync[0] ; n->out.offset = outOffset[0] ; n->out.count = outSum[0] ;
 	    }
-	  else
+	  else if (outN > 0)
 #ifdef RSKIP_SEARCH_COUNT
 	    n->out.rs = rsBuildDynamicSyng (outN, outSync, outOffset, outNrun, outSym, outRunLen) ;
 #else
@@ -1162,3 +1163,70 @@ int main (int argc, char *argv[])
 }
 
 #endif
+
+
+#ifdef RHASH_TEST
+
+// compile with: cc -g -o rhashtest -DRHASH_TEST rhash.c syngbwt3.c rskip.c array.c hash.c utils.c ONElib.c -lz
+
+#include "rhash.h"
+
+static char usage[] = "Usage: rhashtest <syng 1file>" ;
+
+int main (int argc, char *argv[])
+{
+  timeUpdate (0) ;
+
+  storeCommandLine (argc, argv) ;
+  argc-- ; ++argv ;
+
+  if (argc != 1) die (usage) ;
+  OneFile *of = oneFileOpenRead (*argv, 0, 0, 8) ;
+  SyngBWT *sb = syngBWTread (of) ;
+
+  I8  *loc8 = new (256, I8) ;
+  int nMax = 128 ;
+  I32 *symbol = new (nMax, I32) ;
+  U32 *offset = new (nMax, U32) ;
+  I32 *loc32  = new (nMax*2, I32) ;
+  
+  for (int i = 1 ; i < arrayMax (sb->node) ; ++i)
+    { Node n = arr(sb->node, i, Node) ;
+      U8   s = arr(sb->status, i, U8) ;
+      if (!s) continue ; // blank
+      if (!(s & NODE_SIMPLE_IN))
+	{ int nSym = rsNsym(n.in.rs) ;
+	  if (nSym < 4)
+	    continue ;
+	  else if (nSym < 128)
+	    { for (int j = 0 ; j < nSym ; ++j)
+		{ I64 symbol64, offset64 ;
+		  rsDirSyng (n.in.rs, j, &symbol64, &offset64, 0) ;
+		  symbol[j] = symbol64 ; offset[j] = offset64 ;
+		}
+	      linearPerfectCreate (nSym, symbol, offset, loc8) ;
+	    }
+	  else
+	    { if (nSym > nMax)
+		{ newFree(symbol,nMax,I32); newFree(offset,nMax,U32); newFree (loc32,nMax*2,I32);
+		  nMax = nSym*2 ;
+		  symbol = new(nMax,I32) ; offset = new(nMax,U32) ; loc32 = new(nMax*2,I32) ;
+		}
+	      for (int j = 0 ; j < nSym ; ++j)
+		{ I64 symbol64, offset64 ;
+		  rsDirSyng (n.in.rs, j, &symbol64, &offset64, 0) ;
+		  symbol[j] = symbol64 ; offset[j] = offset64 ;
+		}
+	      fixedPerfectCreate (nSym, symbol, offset, loc32) ;
+	    }
+	}
+    }
+  printf ("Done perfectCreate: ") ; timeUpdate (stdout) ;
+  
+  syngBWTdestroy (sb) ;
+  oneFileClose (of) ;
+}
+
+#endif
+
+/****************************** end of file ***************************/
