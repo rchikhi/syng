@@ -1,6 +1,13 @@
 # makefile for gaffer developed on Richard's Mac
 
 CFLAGS = -O3
+ifneq ($(AVX2),)
+ifneq ($(AVX2),0)
+CFLAGS += -DHAVE_AVX2
+CFLAGS_AVX2 = -march=native -mavx2
+USE_AVX2 = 1
+endif
+endif
 #CFLAGS = -g	# for debugging
 
 ALL = syng syngpath2gbwt ONEview syngmap syngstat k31type
@@ -38,6 +45,12 @@ seqio.o: seqio.c seqio.h ONElib.h $(UTILS_HEADERS)
 seqhash.o: seqhash.c seqhash.h $(UTILS_HEADERS)
 	$(CC) $(CFLAGS) -c $^
 
+ifdef USE_AVX2
+avx2.o: avx2.c avx2.h seqio.h $(UTILS_HEADERS)
+	$(CC) $(CFLAGS) $(CFLAGS_AVX2) -c $<
+LINK_AVX2 = avx2.o
+endif
+
 kmerhash.o: kmerhash.c kmerhash.h $(UTILS_HEADERS)
 	$(CC) $(CFLAGS) -DONEIO -c $^
 
@@ -55,25 +68,25 @@ ONElib.o: ONElib.c ONElib.h
 
 ### programs
 
-syng: syng.c syngbwt3.o rskip.o syncmerset.o seqio.o seqhash.o kmerhash.o ONElib.o $(UTILS_OBJS)
+syng: syng.c syngbwt3.o rskip.o syncmerset.o seqio.o seqhash.o kmerhash.o ONElib.o $(UTILS_OBJS) $(LINK_AVX2)
 	$(CC) $(CFLAGS) -o $@ $^ -lpthread $(SEQIO_LIBS)
 
 syngpath2gbwt: syngpath2gbwt.c syngbwt3.o rskip.o ONElib.o $(UTILS_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ -lpthread $(SEQIO_LIBS)
 
-syngmap: syngmap.c syngbwt3.o rskip.o syncmerset.o seqhash.o kmerhash.o seqio.o ONElib.o $(UTILS_OBJS)
+syngmap: syngmap.c syngbwt3.o rskip.o syncmerset.o seqhash.o kmerhash.o seqio.o ONElib.o $(UTILS_OBJS) $(LINK_AVX2)
 	$(CC) $(CFLAGS) -o $@ $^ -lpthread $(SEQIO_LIBS)
 
 syngstat: syngstat.c syngbwt3.o rskip.o ONElib.o $(UTILS_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ -lz -lpthread
 
-syngprune: syngprune.c seqio.o ONElib.o $(UTILS_OBJS)
+syngprune: syngprune.c seqio.o ONElib.o $(UTILS_OBJS) $(LINK_AVX2)
 	$(CC) $(CFLAGS) -o $@ $^ $(SEQIO_LIBS)
 
-syngbwt3: syngbwt3.c rskip.o syng.h seqio.o seqhash.o kmerhash.o ONElib.o $(UTILS_OBJS)
+syngbwt3: syngbwt3.c rskip.o syng.h seqio.o seqhash.o kmerhash.o ONElib.o $(UTILS_OBJS) $(LINK_AVX2)
 	$(CC) $(CFLAGS) -o $@ $^ $(SEQIO_LIBS) syngbwt.o
 
-k31type: k31type.c seqio.o ONElib.o $(UTILS_OBJS)
+k31type: k31type.c seqio.o ONElib.o $(UTILS_OBJS) $(LINK_AVX2)
 	$(CC) $(CFLAGS) -o $@ $^ $(SEQIO_LIBS)
 
 
