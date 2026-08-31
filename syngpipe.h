@@ -289,7 +289,9 @@ static void *threadProcessSequences (void* arg) // find the start positions of a
 	  char *seq = chunkSeqPtr[ci] ;
 	  int spStart = arrayMax(ti->syncPos) ;
 
-	  if (chunkIsMulti[ci])
+	  // count > maxPerRead means only the first maxPerRead positions were
+	  // written, so redo the read through the correctly-bounded iterator
+	  if (chunkIsMulti[ci] && chunkSync[ci].count <= maxPerRead)
 	    { ReadSyncmers *rs = &chunkSync[ci] ;
 	      if (rs->count > 0)
 		processSyncmerPositions (ti, &pipe, seq, rs->positions, rs->count) ;

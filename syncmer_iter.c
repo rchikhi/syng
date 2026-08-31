@@ -55,8 +55,8 @@ SeqhashIterator *syncmerIterator (Seqhash *sh, char *s, int len)
     return si ;
   }
 
-  /* Allocate batch buffers: 4x expected syncmer density gives ample headroom */
-  size_t max_syncmers = 4 * (size_t)len / (sh->w + 1) ;
+  /* 4*len/(w+1) assumes random-sequence density; low-complexity approaches 1/pos */
+  size_t max_syncmers = (size_t)len - (size_t)K + 1 ; // true bound: 1 per k-mer start
   if (max_syncmers < 64) max_syncmers = 64 ;
 
   si->batch_positions = (uint32_t *)malloc (max_syncmers * sizeof(uint32_t)) ;
@@ -87,7 +87,7 @@ void syncmerIteratorReinit (SeqhashIterator *si, char *s, int len)
     return ;
   }
 
-  size_t max_syncmers = 4 * (size_t)len / (sh->w + 1) ;
+  size_t max_syncmers = (size_t)len - (size_t)K + 1 ; // true bound: 1 per k-mer start
   if (max_syncmers < 64) max_syncmers = 64 ;
 
   if (max_syncmers > si->batch_capacity) {

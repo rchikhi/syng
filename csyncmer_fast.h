@@ -21,6 +21,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -1098,10 +1099,18 @@ static inline size_t FUNC_NAME(                                                \
     }                                                                          \
     if (COLLECT_POSITIONS) {                                                   \
         /* Concatenate lane buffers */                                         \
-        size_t total = 0;                                                      \
-        for (int i = 0; i < 8; i++) {                                          \
-            if (lane_counts[i] > 0 &&                                          \
-                total + lane_counts[i] <= max_positions) {                     \
+        size_t total = 0;                                                     \
+        for (int i = 0; i < 8; i++) total += lane_counts[i];                  \
+        if (total > max_positions) {                                          \
+            fprintf(stderr, "csyncmer error: output buffer too small"         \
+                    " (need %zu, have %zu)\n", total, max_positions);         \
+            free(ring_buf); free(strand_ring);                                \
+            free(delay_buf); free(packed);                                    \
+            return 0;                                                         \
+        }                                                                     \
+        total = 0;                                                            \
+        for (int i = 0; i < 8; i++) {                                         \
+            if (lane_counts[i] > 0) {                                         \
                 memcpy(out_positions + total,                                   \
                        ts_pos_bufs_##FUNC_NAME[i],                             \
                        lane_counts[i] * sizeof(uint32_t));                     \
@@ -1532,14 +1541,11 @@ static inline void FUNC_NAME(                                                  \
         }                                                                      \
     } /* end main loop */                                                      \
                                                                                \
-    /* Output: already written directly to out_positions/out_strands */        \
-    if (COLLECT_POSITIONS) {                                                   \
-        for (int i = 0; i < 8; i++) {                                          \
-            size_t n = lane_counts[i] < max_per_read                           \
-                ? lane_counts[i] : max_per_read;                               \
-            out_counts[i] = n;                                                 \
-        }                                                                      \
-    }                                                                          \
+    /* out_counts[i] is the TRUE count and may exceed max_per_read; only      \
+       the first max_per_read entries were written. Callers must check. */    \
+    if (COLLECT_POSITIONS) {                                                  \
+        for (int i = 0; i < 8; i++) out_counts[i] = lane_counts[i];           \
+    }                                                                         \
                                                                                \
     if (own_buf) free(work_buf);                                               \
 }
